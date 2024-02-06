@@ -1,79 +1,22 @@
 #include <Wire.h>
 #include <Adafruit_MMA8451.h>
 #include <Adafruit_Sensor.h>
-#include "utilities.h"
+#include "Mapping.h"
 
 // Accelerometer is a MMA845X wired on pins 18 & 19 (Wire)
 Adafruit_MMA8451 mma = Adafruit_MMA8451();
-int x, y, z;
+float x, y, z;
 
 // Nunchuk is wired on pins 16 & 17 (Wire1)
-int joyMinX = 196;
-int joyMaxX = 254;
-int joyMinY = 198;
-int joyMaxY = 253;
-int vibMin  = 240;
-int vibMax  = 250;
+float joyMinX = 196;
+float joyMaxX = 254;
+float joyMinY = 198;
+float joyMaxY = 253;
+float vibMin  = 240;
+float vibMax  = 250;
 byte values[6]; // read nunchuk values in there
 
-// MIDI variables
-const int channel = 1;
-const int cable   = 0;
-
-// implementation of virtual MIDIMapping class used by MIDITransformer
-class Mapping : public MIDIMapping {
-private:
-  float azi;
-  float ele;
-
-  void sendNoteEvent(bool on, int note, int velocity, int channel, int cable) {
-    if (on) { usbMIDI.sendNoteOn(note, velocity, channel, cable); }
-    else { usbMIDI.sendNoteOff(note, 0, channel, cable); }
-  }
-
-public:
-  void onPluckDown(bool v) override {
-
-  }
-
-  void onPluckUp(bool v) override {
-
-  }
-  
-  void onPlus(bool v) override {
-    sendNoteEvent(v, 72, 127, channel, cable);
-  }
-  
-  void onMinus(bool v) override {
-    sendNoteEvent(v, 73, 127, channel, cable);
-  }
-  
-  void onFret(int i, bool v) override {
-
-  }
-  
-  void onJoyX(float v) override {
-
-  }
-  
-  void onJoyY(float v) override {
-
-  }
-  
-  void onVib(float v) override {
-
-  }
-
-  void onAccel(float x, float y, float z) override {
-    float cx = constrain(x / 9.81, -1.f, 1.f);
-    float cy = constrain(y / 9.81, -1.f, 1.f);
-    float cz = constrain(z / 9.81, -1.f, 1.f);
-
-    getAzimuthElevation(cx, cy, cz, azi, ele);
-  }
-};
-
-Mapping m;
+Mapping m(false); // don't retrig sounding notes
 MIDITransformer transformer(&m);
 
 void setup()
@@ -119,12 +62,12 @@ void loop()
   x = event.acceleration.x / 9.81;
   y = event.acceleration.y / 9.81;
   z = event.acceleration.z / 9.81;
+  // Serial.print(x); Serial.print("\t");
+  // Serial.print(y); Serial.print("\t");
+  // Serial.print(z); Serial.print("\t");
+  // Serial.println();
 
   transformer.setAccel(x, y, z);
-
-  // Serial.print("X: \t"); Serial.print(x); Serial.print("\t");
-  // Serial.print("Y: \t"); Serial.print(y); Serial.print("\t");
-  // Serial.print("Z: \t"); Serial.print(z); Serial.print("\t");
 
   // GUITAR CONTROLS //////////////////////////////////////////////////////////
   int count = 0;
@@ -134,7 +77,7 @@ void loop()
     values[count] = Wire1.read();
     count++; 
   }
-  delay(10);
+  delay(2);
   Wire1.beginTransmission(0x52);
   Wire1.write((byte) 0x00);
   Wire1.write((byte) 0x00);
@@ -152,7 +95,7 @@ void loop()
 
   float joyX  = map(constrain(values[0], joyMinX, joyMaxX), joyMinX, joyMaxX, 0.f, 1.f);
   float joyY  = map(constrain(values[1], joyMinY, joyMaxY), joyMinY, joyMaxY, 0.f, 1.f);
-  float vib   = map(constrain(values[3], vibMin, vibMax), vibMin, vibMax, 0.f, 1.f);
+  float vib   = map(constrain(values[3], vibMin,  vibMax),  vibMin,   vibMax, 0.f, 1.f);
   transformer.setJoyX(joyX);
   transformer.setJoyY(joyY);
   transformer.setVib(vib);
@@ -166,7 +109,6 @@ void loop()
   bool minusBtn   = bitRead(values[4], 4) == 0;
   transformer.setPlus(plusBtn);
   transformer.setMinus(minusBtn);
-
   
   bool greenBtn   = bitRead(values[5], 4) == 0;
   bool redBtn     = bitRead(values[5], 6) == 0;
@@ -179,8 +121,11 @@ void loop()
   transformer.setFret(3, blueBtn);
   transformer.setFret(4, orangeBtn);
 
+  transformer.update();
+
   // usbMIDI.sendNoteOn(60, 99, channel, cable);
   // usbMIDI.sendNoteOff(60, 0, channel, cable);
   // usbMIDI.sendControlChange(7, 100, channel, cable);
   // usbMIDI.sendPitchBend(911, channel, cable);
+  delay(2);
 }
