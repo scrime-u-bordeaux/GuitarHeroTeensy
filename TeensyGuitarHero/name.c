@@ -2,7 +2,7 @@
 
 // #define MIDI_NAME   {'M','y',' ','M','I','D','I'}
 #define MIDI_NAME {'G','i','b','s','o','n',' ','H','e','r','o',' ','C','o','n','t','r','o','l','l','e','r'}
-#define MIDI_NAME_LEN 21
+#define MIDI_NAME_LEN 22
 
 // Do not change this part.  This exact format is required by USB.
 
